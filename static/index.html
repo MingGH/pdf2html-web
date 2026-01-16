@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to HTML Converter</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .main-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9ff;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+            transform: scale(1.02);
+        }
+        .upload-icon {
+            font-size: 4rem;
+            color: #667eea;
+        }
+        .btn-convert {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            padding: 12px 40px;
+            font-size: 1.1rem;
+            border-radius: 30px;
+            transition: all 0.3s ease;
+        }
+        .btn-convert:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        .options-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        .result-section {
+            display: none;
+        }
+        .result-section.show {
+            display: block;
+        }
+        .preview-frame {
+            width: 100%;
+            height: 500px;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+        }
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+        .loading-overlay.show {
+            display: flex;
+        }
+        .loading-content {
+            text-align: center;
+            color: white;
+        }
+        .spinner-custom {
+            width: 60px;
+            height: 60px;
+        }
+        .file-info {
+            background: #e8f4fd;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        .form-check-input:checked {
+            background-color: #667eea;
+            border-color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner-border spinner-custom text-light mb-3" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <h4>正在转换中...</h4>
+            <p>请稍候，这可能需要一些时间</p>
+        </div>
+    </div>
+
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="main-card p-4 p-md-5">
+                    <div class="text-center mb-4">
+                        <h1 class="display-5 fw-bold text-primary">
+                            <i class="bi bi-file-earmark-pdf me-2"></i>
+                            PDF to HTML Converter
+                        </h1>
+                        <p class="text-muted">基于 pdf2htmlEX 的在线转换工具</p>
+                    </div>
+
+                    <form id="convertForm" enctype="multipart/form-data">
+                        <!-- 上传区域 -->
+                        <div class="upload-area mb-4" id="uploadArea">
+                            <i class="bi bi-cloud-arrow-up upload-icon"></i>
+                            <h4 class="mt-3">拖拽 PDF 文件到这里</h4>
+                            <p class="text-muted">或者点击选择文件</p>
+                            <input type="file" id="fileInput" name="file" accept=".pdf" class="d-none">
+                        </div>
+
+                        <div class="file-info d-none" id="fileInfo">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-file-earmark-pdf fs-2 text-danger me-3"></i>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-0" id="fileName">文件名</h6>
+                                    <small class="text-muted" id="fileSize">文件大小</small>
+                                </div>
+                                <button type="button" class="btn btn-outline-danger btn-sm" id="removeFile">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 转换选项 -->
+                        <div class="options-section mt-4">
+                            <h5 class="mb-3">
+                                <i class="bi bi-gear me-2"></i>转换选项
+                                <button class="btn btn-link btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#advancedOptions">
+                                    显示高级选项
+                                </button>
+                            </h5>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">缩放比例 (Zoom)</label>
+                                    <input type="number" class="form-control" name="zoom" step="0.1" min="0.1" max="10" placeholder="默认: 1.0">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">适应宽度 (px)</label>
+                                    <input type="number" class="form-control" name="fit_width" min="100" placeholder="可选">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">适应高度 (px)</label>
+                                    <input type="number" class="form-control" name="fit_height" min="100" placeholder="可选">
+                                </div>
+                            </div>
+
+                            <div class="collapse mt-3" id="advancedOptions">
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <label class="form-label">起始页</label>
+                                        <input type="number" class="form-control" name="first_page" min="1" placeholder="1">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">结束页</label>
+                                        <input type="number" class="form-control" name="last_page" min="1" placeholder="最后一页">
+                                    </div>
+                                </div>
+                                
+                                <div class="row g-3 mt-2">
+                                    <div class="col-md-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="embed_css" id="embedCss" checked>
+                                            <label class="form-check-label" for="embedCss">嵌入 CSS</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="embed_font" id="embedFont" checked>
+                                            <label class="form-check-label" for="embedFont">嵌入字体</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="embed_image" id="embedImage" checked>
+                                            <label class="form-check-label" for="embedImage">嵌入图片</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="embed_javascript" id="embedJs" checked>
+                                            <label class="form-check-label" for="embedJs">嵌入 JS</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row g-3 mt-2">
+                                    <div class="col-md-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="split_pages" id="splitPages">
+                                            <label class="form-check-label" for="splitPages">分页输出</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 转换按钮 -->
+                        <div class="text-center mt-4">
+                            <button type="submit" class="btn btn-primary btn-convert" id="convertBtn" disabled>
+                                <i class="bi bi-arrow-repeat me-2"></i>开始转换
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- 结果区域 -->
+                    <div class="result-section mt-5" id="resultSection">
+                        <hr>
+                        <h4 class="mb-3">
+                            <i class="bi bi-check-circle text-success me-2"></i>转换完成
+                        </h4>
+                        <div class="d-flex gap-2 mb-3">
+                            <a href="#" class="btn btn-success" id="downloadBtn" target="_blank">
+                                <i class="bi bi-download me-2"></i>下载 HTML
+                            </a>
+                            <a href="#" class="btn btn-outline-primary" id="previewBtn" target="_blank">
+                                <i class="bi bi-eye me-2"></i>新窗口预览
+                            </a>
+                        </div>
+                        <h5 class="mt-4 mb-3">预览</h5>
+                        <iframe id="previewFrame" class="preview-frame"></iframe>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4 text-white">
+                    <p>Powered by <a href="https://github.com/pdf2htmlEX/pdf2htmlEX" class="text-white" target="_blank">pdf2htmlEX</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const removeFile = document.getElementById('removeFile');
+        const convertForm = document.getElementById('convertForm');
+        const convertBtn = document.getElementById('convertBtn');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const resultSection = document.getElementById('resultSection');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const previewBtn = document.getElementById('previewBtn');
+        const previewFrame = document.getElementById('previewFrame');
+
+        // 点击上传区域
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        // 拖拽事件
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type === 'application/pdf') {
+                fileInput.files = files;
+                showFileInfo(files[0]);
+            }
+        });
+
+        // 文件选择
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                showFileInfo(fileInput.files[0]);
+            }
+        });
+
+        // 显示文件信息
+        function showFileInfo(file) {
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+            fileInfo.classList.remove('d-none');
+            uploadArea.classList.add('d-none');
+            convertBtn.disabled = false;
+        }
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 移除文件
+        removeFile.addEventListener('click', () => {
+            fileInput.value = '';
+            fileInfo.classList.add('d-none');
+            uploadArea.classList.remove('d-none');
+            convertBtn.disabled = true;
+            resultSection.classList.remove('show');
+        });
+
+        // 表单提交
+        convertForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            // 添加选项
+            const zoom = document.querySelector('input[name="zoom"]').value;
+            const fitWidth = document.querySelector('input[name="fit_width"]').value;
+            const fitHeight = document.querySelector('input[name="fit_height"]').value;
+            const firstPage = document.querySelector('input[name="first_page"]').value;
+            const lastPage = document.querySelector('input[name="last_page"]').value;
+            
+            if (zoom) formData.append('zoom', zoom);
+            if (fitWidth) formData.append('fit_width', fitWidth);
+            if (fitHeight) formData.append('fit_height', fitHeight);
+            if (firstPage) formData.append('first_page', firstPage);
+            if (lastPage) formData.append('last_page', lastPage);
+            
+            formData.append('embed_css', document.getElementById('embedCss').checked);
+            formData.append('embed_font', document.getElementById('embedFont').checked);
+            formData.append('embed_image', document.getElementById('embedImage').checked);
+            formData.append('embed_javascript', document.getElementById('embedJs').checked);
+            formData.append('split_pages', document.getElementById('splitPages').checked);
+
+            loadingOverlay.classList.add('show');
+            resultSection.classList.remove('show');
+
+            try {
+                const response = await fetch('/api/convert', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    downloadBtn.href = result.html_url;
+                    previewBtn.href = result.html_url;
+                    previewFrame.src = result.html_url;
+                    resultSection.classList.add('show');
+                } else {
+                    alert('转换失败: ' + result.message);
+                }
+            } catch (error) {
+                alert('请求失败: ' + error.message);
+            } finally {
+                loadingOverlay.classList.remove('show');
+            }
+        });
+    </script>
+</body>
+</html>
