@@ -252,6 +252,8 @@ async fn convert_pdf(mut payload: Multipart) -> Result<HttpResponse> {
     let output_filename = original_filename.replace(".pdf", ".html").replace(".PDF", ".html");
 
     let mut args = vec![
+        "--no-drm".to_string(),
+        "1".to_string(),
         "--dest-dir".to_string(),
         task_output_dir.clone(),
         pdf_path.to_string_lossy().to_string(),
